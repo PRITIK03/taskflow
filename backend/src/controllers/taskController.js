@@ -1,6 +1,35 @@
 const prisma = require('../config/db');
 const { logActivity } = require('../utils/activityLogger');
 
+const TASK_STATUSES = new Set(['TODO', 'IN_PROGRESS', 'DONE']);
+const PRIORITIES = new Set(['LOW', 'MEDIUM', 'HIGH']);
+const MAX_LIMIT = 100;
+
+const parsePage = (raw) => {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.floor(n);
+};
+
+const parseLimit = (raw) => {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 1) return 20;
+  return Math.min(MAX_LIMIT, Math.floor(n));
+};
+
+const parseDueDateInput = (value) => {
+  if (value === null || value === '') {
+    return { value: null };
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return { error: 'Invalid due date.' };
+  }
+
+  return { value: date };
+};
+
 const createTask = async (req, res) => {
   const projectId = req.params.id;
   const title = req.body.title?.trim();
@@ -9,11 +38,20 @@ const createTask = async (req, res) => {
     return res.status(400).json({ error: 'Task title is required.' });
   }
 
-  if (req.body.dueDate !== undefined && req.body.dueDate !== null) {
-    const dueDate = new Date(req.body.dueDate);
-    if (dueDate < new Date()) {
+  if (req.body.priority !== undefined && !PRIORITIES.has(req.body.priority)) {
+    return res.status(400).json({ error: 'Invalid priority.' });
+  }
+
+  let dueDate;
+  if (req.body.dueDate !== undefined && req.body.dueDate !== null && req.body.dueDate !== '') {
+    const parsed = parseDueDateInput(req.body.dueDate);
+    if (parsed.error) {
+      return res.status(400).json({ error: parsed.error });
+    }
+    if (parsed.value < new Date()) {
       return res.status(400).json({ error: 'Due date cannot be in the past.' });
     }
+    dueDate = parsed.value;
   }
 
   if (req.body.assigneeId) {
@@ -37,8 +75,8 @@ const createTask = async (req, res) => {
       title,
       description: req.body.description,
       priority: req.body.priority,
-      dueDate: req.body.dueDate ? new Date(req.body.dueDate) : undefined,
-      assigneeId: req.body.assigneeId,
+      dueDate,
+      assigneeId: req.body.assigneeId || undefined,
       createdById: req.userId,
     },
   });
@@ -55,9 +93,17 @@ const createTask = async (req, res) => {
 
 const listTasks = async (req, res) => {
   const projectId = req.params.id;
-  const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 20;
+  const page = parsePage(req.query.page);
+  const limit = parseLimit(req.query.limit);
   const { status, priority, assigneeId, search } = req.query;
+
+  if (status && !TASK_STATUSES.has(status)) {
+    return res.status(400).json({ error: 'Invalid status.' });
+  }
+
+  if (priority && !PRIORITIES.has(priority)) {
+    return res.status(400).json({ error: 'Invalid priority.' });
+  }
 
   const allowedSortFields = ['priority', 'dueDate', 'createdAt'];
   const sortBy = allowedSortFields.includes(req.query.sortBy)
@@ -135,6 +181,14 @@ const updateTask = async (req, res) => {
     }
   }
 
+  if (req.body.priority !== undefined && !PRIORITIES.has(req.body.priority)) {
+    return res.status(400).json({ error: 'Invalid priority.' });
+  }
+
+  if (req.body.status !== undefined && !TASK_STATUSES.has(req.body.status)) {
+    return res.status(400).json({ error: 'Invalid status.' });
+  }
+
   if (req.body.assigneeId) {
     const membership = await prisma.membership.findUnique({
       where: {
@@ -176,11 +230,15 @@ const updateTask = async (req, res) => {
   }
 
   if (req.body.dueDate !== undefined) {
-    data.dueDate = req.body.dueDate ? new Date(req.body.dueDate) : null;
+    const parsed = parseDueDateInput(req.body.dueDate);
+    if (parsed.error) {
+      return res.status(400).json({ error: parsed.error });
+    }
+    data.dueDate = parsed.value;
   }
 
   if (req.body.assigneeId !== undefined) {
-    data.assigneeId = req.body.assigneeId;
+    data.assigneeId = req.body.assigneeId || null;
   }
 
   if (req.body.status !== undefined) {
@@ -191,6 +249,10 @@ const updateTask = async (req, res) => {
     } else if (req.body.status !== 'DONE' && existingTask.status === 'DONE') {
       data.completedAt = null;
     }
+  }
+
+  if (Object.keys(data).length === 0) {
+    return res.json(existingTask);
   }
 
   const task = await prisma.task.update({
@@ -207,15 +269,16 @@ const updateTask = async (req, res) => {
     );
   }
 
-  if (
-    req.body.assigneeId !== undefined &&
-    req.body.assigneeId !== existingTask.assigneeId
-  ) {
+  const newAssigneeId = req.body.assigneeId !== undefined
+    ? (req.body.assigneeId || null)
+    : undefined;
+
+  if (newAssigneeId !== undefined && newAssigneeId !== existingTask.assigneeId) {
     let message;
 
-    if (req.body.assigneeId) {
+    if (newAssigneeId) {
       const assignee = await prisma.user.findUnique({
-        where: { id: req.body.assigneeId },
+        where: { id: newAssigneeId },
         select: { name: true },
       });
       message = `Task "${task.title}" was assigned to ${assignee.name}.`;
