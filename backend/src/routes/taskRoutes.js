@@ -14,4 +14,7 @@ router.get('/:taskId', getTask);
 router.patch('/:taskId', updateTask);
 router.delete('/:taskId', deleteTask);
 
+const commentRoutes = require('./commentRoutes');
+router.use('/:taskId/comments', commentRoutes);
+
 module.exports = router;

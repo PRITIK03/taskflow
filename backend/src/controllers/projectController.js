@@ -1,6 +1,20 @@
 const prisma = require('../config/db');
 const { logActivity } = require('../utils/activityLogger');
 
+const MAX_LIMIT = 100;
+
+const parsePage = (raw) => {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.floor(n);
+};
+
+const parseLimit = (raw) => {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 1) return 20;
+  return Math.min(MAX_LIMIT, Math.floor(n));
+};
+
 const createProject = async (req, res) => {
   const name = req.body.name?.trim();
 
@@ -172,6 +186,36 @@ const removeMember = async (req, res) => {
   res.json({ message: 'Member removed successfully.' });
 };
 
+const listActivity = async (req, res) => {
+  const projectId = req.params.id;
+  const page = parsePage(req.query.page);
+  const limit = parseLimit(req.query.limit);
+
+  const where = { projectId };
+
+  const [total, data] = await Promise.all([
+    prisma.activityLog.count({ where }),
+    prisma.activityLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+      include: {
+        actor: {
+          select: { name: true },
+        },
+      },
+    }),
+  ]);
+
+  res.json({
+    data,
+    total,
+    page,
+    totalPages: Math.ceil(total / limit),
+  });
+};
+
 module.exports = {
   createProject,
   listMyProjects,
@@ -180,4 +224,5 @@ module.exports = {
   inviteMember,
   listMembers,
   removeMember,
+  listActivity,
 };

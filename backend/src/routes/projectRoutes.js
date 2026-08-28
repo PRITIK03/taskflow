@@ -8,6 +8,7 @@ const {
   inviteMember,
   listMembers,
   removeMember,
+  listActivity,
 } = require('../controllers/projectController');
 const authenticateToken = require('../middleware/authMiddleware');
 const { requireProjectMembership, requireProjectOwner } = require('../middleware/projectMiddleware');
@@ -23,6 +24,7 @@ router.delete('/:id', requireProjectMembership, requireProjectOwner, deleteProje
 router.post('/:id/members', requireProjectMembership, requireProjectOwner, inviteMember);
 router.get('/:id/members', requireProjectMembership, listMembers);
 router.delete('/:id/members/:userId', requireProjectMembership, requireProjectOwner, removeMember);
+router.get('/:id/activity', requireProjectMembership, listActivity);
 router.use('/:id/tasks', requireProjectMembership, taskRoutes);
 
 module.exports = router;
