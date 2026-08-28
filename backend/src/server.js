@@ -7,11 +7,17 @@ const app = express();
 const server = http.createServer(app);
 // needed so Socket.io can attach to the same server later
 
+const cookieParser = require('cookie-parser');
+
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
+
+const projectRoutes = require('./routes/projectRoutes');
+app.use('/api/projects', projectRoutes);
 
 // Simple health check route — confirms the server boots correctly
 app.get('/health', (req, res) => {
