@@ -1,4 +1,5 @@
 const prisma = require('../config/db');
+const { emitCommentAdded } = require('../sockets/emitters');
 
 const createComment = async (req, res) => {
   const projectId = req.params.id;
@@ -44,6 +45,8 @@ const createComment = async (req, res) => {
 
     return created;
   });
+
+  emitCommentAdded(projectId, comment);
 
   res.status(201).json(comment);
 };

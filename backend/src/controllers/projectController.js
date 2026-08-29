@@ -1,5 +1,6 @@
 const prisma = require('../config/db');
 const { logActivity } = require('../utils/activityLogger');
+const { emitMemberInvited, emitMemberRemoved } = require('../sockets/emitters');
 
 const MAX_LIMIT = 100;
 
@@ -122,6 +123,8 @@ const inviteMember = async (req, res) => {
     `${userToInvite.name} was invited to the project.`
   );
 
+  emitMemberInvited(projectId, membership);
+
   res.status(201).json(membership);
 };
 
@@ -182,6 +185,8 @@ const removeMember = async (req, res) => {
     'MEMBER_REMOVED',
     `A member was removed from the project.`
   );
+
+  emitMemberRemoved(projectId, userId);
 
   res.json({ message: 'Member removed successfully.' });
 };

@@ -5,7 +5,8 @@ const http = require('http');
 
 const app = express();
 const server = http.createServer(app);
-// needed so Socket.io can attach to the same server later
+const initSocket = require('./sockets/socket');
+initSocket(server);
 
 const cookieParser = require('cookie-parser');
 

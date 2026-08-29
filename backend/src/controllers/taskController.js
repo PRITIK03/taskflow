@@ -1,5 +1,6 @@
 const prisma = require('../config/db');
 const { logActivity } = require('../utils/activityLogger');
+const { emitTaskCreated, emitTaskUpdated, emitTaskDeleted } = require('../sockets/emitters');
 
 const TASK_STATUSES = new Set(['TODO', 'IN_PROGRESS', 'DONE']);
 const PRIORITIES = new Set(['LOW', 'MEDIUM', 'HIGH']);
@@ -88,6 +89,8 @@ const createTask = async (req, res) => {
     `Task "${title}" was created.`
   );
 
+  emitTaskCreated(projectId, task);
+
   res.status(201).json(task);
 };
 
@@ -165,6 +168,9 @@ const getTask = async (req, res) => {
 const updateTask = async (req, res) => {
   const projectId = req.params.id;
   const { taskId } = req.params;
+
+  // Capture the current assignee BEFORE the update so we can detect
+  // reassignment and send a personal notification to the new assignee.
 
   const existingTask = await prisma.task.findFirst({
     where: { id: taskId, projectId },
@@ -289,10 +295,13 @@ const updateTask = async (req, res) => {
     await logActivity(projectId, req.userId, 'TASK_ASSIGNED', message);
   }
 
+  emitTaskUpdated(projectId, task, existingTask.assigneeId);
+
   res.json(task);
 };
 
 const deleteTask = async (req, res) => {
+  const projectId = req.params.id;
   const task = await prisma.task.findFirst({
     where: {
       id: req.params.taskId,
@@ -307,6 +316,8 @@ const deleteTask = async (req, res) => {
   await prisma.task.delete({
     where: { id: req.params.taskId },
   });
+
+  emitTaskDeleted(projectId, req.params.taskId);
 
   res.json({ message: 'Task deleted successfully.' });
 };
