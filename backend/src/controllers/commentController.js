@@ -1,5 +1,4 @@
 const prisma = require('../config/db');
-const { logActivity } = require('../utils/activityLogger');
 
 const createComment = async (req, res) => {
   const projectId = req.params.id;
@@ -20,25 +19,31 @@ const createComment = async (req, res) => {
     return res.status(400).json({ error: 'Comment body is required.' });
   }
 
-  const comment = await prisma.comment.create({
-    data: {
-      taskId,
-      authorId: req.userId,
-      body,
-    },
-    include: {
-      author: {
-        select: { id: true, name: true, email: true },
+  const comment = await prisma.$transaction(async (tx) => {
+    const created = await tx.comment.create({
+      data: {
+        taskId,
+        authorId: req.userId,
+        body,
       },
-    },
-  });
+      include: {
+        author: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
 
-  await logActivity(
-    projectId,
-    req.userId,
-    'COMMENT_ADDED',
-    `Comment added on task "${task.title}".`
-  );
+    await tx.activityLog.create({
+      data: {
+        projectId,
+        actorId: req.userId,
+        type: 'COMMENT_ADDED',
+        message: `Comment added on task "${task.title}".`,
+      },
+    });
+
+    return created;
+  });
 
   res.status(201).json(comment);
 };
