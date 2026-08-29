@@ -22,6 +22,9 @@ app.use('/api/projects', projectRoutes);
 const myTasksRoutes = require('./routes/myTasksRoutes');
 app.use('/api/tasks', myTasksRoutes);
 
+const dashboardRoutes = require('./routes/dashboardRoutes');
+app.use('/api/dashboard', dashboardRoutes);
+
 // Simple health check route — confirms the server boots correctly
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
