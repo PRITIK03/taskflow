@@ -1,6 +1,7 @@
 const prisma = require('../config/db');
+const asyncHandler = require('../utils/asyncHandler');
 
-const getDashboard = async (req, res) => {
+const getDashboard = asyncHandler(async (req, res) => {
   // "This week" = Monday 00:00 (server-local time) through now, not a rolling 7-day window,
   // since that matches how most people read a weekly dashboard stat.
   const now = new Date();
@@ -77,6 +78,6 @@ const getDashboard = async (req, res) => {
     busiestProject,
     recentActivity,
   });
-};
+});
 
 module.exports = { getDashboard };

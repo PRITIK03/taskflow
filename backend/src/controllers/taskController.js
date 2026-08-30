@@ -1,6 +1,7 @@
 const prisma = require('../config/db');
 const { logActivity } = require('../utils/activityLogger');
 const { emitTaskCreated, emitTaskUpdated, emitTaskDeleted } = require('../sockets/emitters');
+const asyncHandler = require('../utils/asyncHandler');
 
 const TASK_STATUSES = new Set(['TODO', 'IN_PROGRESS', 'DONE']);
 const PRIORITIES = new Set(['LOW', 'MEDIUM', 'HIGH']);
@@ -31,7 +32,7 @@ const parseDueDateInput = (value) => {
   return { value: date };
 };
 
-const createTask = async (req, res) => {
+const createTask = asyncHandler(async (req, res) => {
   const projectId = req.params.id;
   const title = req.body.title?.trim();
 
@@ -92,9 +93,9 @@ const createTask = async (req, res) => {
   emitTaskCreated(projectId, task);
 
   res.status(201).json(task);
-};
+});
 
-const listTasks = async (req, res) => {
+const listTasks = asyncHandler(async (req, res) => {
   const projectId = req.params.id;
   const page = parsePage(req.query.page);
   const limit = parseLimit(req.query.limit);
@@ -148,9 +149,9 @@ const listTasks = async (req, res) => {
     page,
     totalPages: Math.ceil(total / limit),
   });
-};
+});
 
-const getTask = async (req, res) => {
+const getTask = asyncHandler(async (req, res) => {
   const task = await prisma.task.findFirst({
     where: {
       id: req.params.taskId,
@@ -163,9 +164,9 @@ const getTask = async (req, res) => {
   }
 
   res.json(task);
-};
+});
 
-const updateTask = async (req, res) => {
+const updateTask = asyncHandler(async (req, res) => {
   const projectId = req.params.id;
   const { taskId } = req.params;
 
@@ -240,6 +241,10 @@ const updateTask = async (req, res) => {
     if (parsed.error) {
       return res.status(400).json({ error: parsed.error });
     }
+    // Only reject past dates when actually setting a date (null = clearing it, which is fine)
+    if (parsed.value !== null && parsed.value < new Date()) {
+      return res.status(400).json({ error: 'Due date cannot be in the past.' });
+    }
     data.dueDate = parsed.value;
   }
 
@@ -298,9 +303,9 @@ const updateTask = async (req, res) => {
   emitTaskUpdated(projectId, task, existingTask.assigneeId);
 
   res.json(task);
-};
+});
 
-const deleteTask = async (req, res) => {
+const deleteTask = asyncHandler(async (req, res) => {
   const projectId = req.params.id;
   const task = await prisma.task.findFirst({
     where: {
@@ -313,6 +318,16 @@ const deleteTask = async (req, res) => {
     return res.status(404).json({ error: 'Task not found.' });
   }
 
+  // Only the project owner or the task creator may delete a task.
+  const canDelete =
+    req.membership.role === 'OWNER' || task.createdById === req.userId;
+
+  if (!canDelete) {
+    return res.status(403).json({
+      error: 'Only the task creator or project owner can delete this task.',
+    });
+  }
+
   await prisma.task.delete({
     where: { id: req.params.taskId },
   });
@@ -320,7 +335,7 @@ const deleteTask = async (req, res) => {
   emitTaskDeleted(projectId, req.params.taskId);
 
   res.json({ message: 'Task deleted successfully.' });
-};
+});
 
 module.exports = {
   createTask,

@@ -1,6 +1,7 @@
 const prisma = require('../config/db');
 const { logActivity } = require('../utils/activityLogger');
 const { emitMemberInvited, emitMemberRemoved } = require('../sockets/emitters');
+const asyncHandler = require('../utils/asyncHandler');
 
 const MAX_LIMIT = 100;
 
@@ -16,7 +17,7 @@ const parseLimit = (raw) => {
   return Math.min(MAX_LIMIT, Math.floor(n));
 };
 
-const createProject = async (req, res) => {
+const createProject = asyncHandler(async (req, res) => {
   const name = req.body.name?.trim();
 
   if (!name) {
@@ -45,9 +46,9 @@ const createProject = async (req, res) => {
   });
 
   res.status(201).json(result);
-};
+});
 
-const listMyProjects = async (req, res) => {
+const listMyProjects = asyncHandler(async (req, res) => {
   const memberships = await prisma.membership.findMany({
     where: { userId: req.userId },
     include: { project: true },
@@ -59,9 +60,9 @@ const listMyProjects = async (req, res) => {
   }));
 
   res.json(projects);
-};
+});
 
-const getProject = async (req, res) => {
+const getProject = asyncHandler(async (req, res) => {
   const project = await prisma.project.findUnique({
     where: { id: req.params.id },
   });
@@ -71,18 +72,18 @@ const getProject = async (req, res) => {
   }
 
   res.json({ ...project, myRole: req.membership.role });
-};
+});
 
-const deleteProject = async (req, res) => {
+const deleteProject = asyncHandler(async (req, res) => {
   // onDelete: Cascade on Membership, Task, ActivityLog handles cleanup
   await prisma.project.delete({
     where: { id: req.params.id },
   });
 
   res.json({ message: 'Project deleted successfully.' });
-};
+});
 
-const inviteMember = async (req, res) => {
+const inviteMember = asyncHandler(async (req, res) => {
   const { email } = req.body;
   const projectId = req.params.id;
 
@@ -126,9 +127,9 @@ const inviteMember = async (req, res) => {
   emitMemberInvited(projectId, membership);
 
   res.status(201).json(membership);
-};
+});
 
-const listMembers = async (req, res) => {
+const listMembers = asyncHandler(async (req, res) => {
   const memberships = await prisma.membership.findMany({
     where: { projectId: req.params.id },
     include: {
@@ -139,9 +140,9 @@ const listMembers = async (req, res) => {
   });
 
   res.json(memberships);
-};
+});
 
-const removeMember = async (req, res) => {
+const removeMember = asyncHandler(async (req, res) => {
   const projectId = req.params.id;
   const { userId } = req.params;
 
@@ -189,9 +190,9 @@ const removeMember = async (req, res) => {
   emitMemberRemoved(projectId, userId);
 
   res.json({ message: 'Member removed successfully.' });
-};
+});
 
-const listActivity = async (req, res) => {
+const listActivity = asyncHandler(async (req, res) => {
   const projectId = req.params.id;
   const page = parsePage(req.query.page);
   const limit = parseLimit(req.query.limit);
@@ -219,7 +220,7 @@ const listActivity = async (req, res) => {
     page,
     totalPages: Math.ceil(total / limit),
   });
-};
+});
 
 module.exports = {
   createProject,

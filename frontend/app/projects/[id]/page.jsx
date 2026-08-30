@@ -121,8 +121,9 @@ export default function ProjectDetailPage() {
 
       setInviteSuccess('Member invited successfully!');
       setInviteEmail('');
-      
-      // Refresh members list
+
+      // Re-fetch the members list — the POST response only returns the bare Membership row,
+      // not the joined user data (name, email) needed to render the member card.
       const membersResponse = await authedFetch(`/api/projects/${projectId}/members`);
       if (membersResponse.ok) {
         const data = await membersResponse.json();
@@ -151,12 +152,9 @@ export default function ProjectDetailPage() {
         return;
       }
 
-      // Refresh members list
-      const membersResponse = await authedFetch(`/api/projects/${projectId}/members`);
-      if (membersResponse.ok) {
-        const data = await membersResponse.json();
-        setMembers(data);
-      }
+      // Remove the member from local state directly — no re-fetch needed
+      // since we have the userId and don't need any server-provided data.
+      setMembers((prev) => prev.filter((m) => m.userId !== userId));
     } catch (err) {
       alert('Failed to remove member');
     }

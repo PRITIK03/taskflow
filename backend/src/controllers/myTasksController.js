@@ -1,4 +1,5 @@
 const prisma = require('../config/db');
+const asyncHandler = require('../utils/asyncHandler');
 
 const MAX_LIMIT = 100;
 
@@ -14,7 +15,7 @@ const parseLimit = (raw) => {
   return Math.min(MAX_LIMIT, Math.floor(n));
 };
 
-const getAssignedToMe = async (req, res) => {
+const getAssignedToMe = asyncHandler(async (req, res) => {
   const page = parsePage(req.query.page);
   const limit = parseLimit(req.query.limit);
 
@@ -41,6 +42,6 @@ const getAssignedToMe = async (req, res) => {
     page,
     totalPages: Math.ceil(total / limit),
   });
-};
+});
 
 module.exports = { getAssignedToMe };

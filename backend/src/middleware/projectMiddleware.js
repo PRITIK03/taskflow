@@ -1,8 +1,9 @@
 const prisma = require('../config/db');
+const asyncHandler = require('../utils/asyncHandler');
 
 // Verifies the authenticated user is a member of the project.
 // Attaches the Membership row to req.membership for downstream handlers.
-const requireProjectMembership = async (req, res, next) => {
+const requireProjectMembership = asyncHandler(async (req, res, next) => {
   const projectId = req.params.id;
 
   const membership = await prisma.membership.findUnique({
@@ -20,7 +21,7 @@ const requireProjectMembership = async (req, res, next) => {
 
   req.membership = membership;
   next();
-};
+});
 
 // Must run after requireProjectMembership.
 // Rejects non-owners before the route handler runs.

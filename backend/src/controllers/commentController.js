@@ -1,7 +1,8 @@
 const prisma = require('../config/db');
 const { emitCommentAdded } = require('../sockets/emitters');
+const asyncHandler = require('../utils/asyncHandler');
 
-const createComment = async (req, res) => {
+const createComment = asyncHandler(async (req, res) => {
   const projectId = req.params.id;
   const { taskId } = req.params;
 
@@ -49,9 +50,9 @@ const createComment = async (req, res) => {
   emitCommentAdded(projectId, comment);
 
   res.status(201).json(comment);
-};
+});
 
-const listComments = async (req, res) => {
+const listComments = asyncHandler(async (req, res) => {
   const projectId = req.params.id;
   const { taskId } = req.params;
 
@@ -75,7 +76,7 @@ const listComments = async (req, res) => {
   });
 
   res.json(comments);
-};
+});
 
 module.exports = {
   createComment,

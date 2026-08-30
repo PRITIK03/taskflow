@@ -1,8 +1,9 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const prisma = require('../config/db');
+const asyncHandler = require('../utils/asyncHandler');
 
-const signup = async (req, res) => {
+const signup = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
 
   // Basic validation
@@ -42,7 +43,7 @@ const signup = async (req, res) => {
     name: user.name,
     email: user.email,
   });
-};
+});
 
 const generateAccessToken = (userId) => {
   return jwt.sign({ userId }, process.env.JWT_ACCESS_SECRET, { expiresIn: '15m' });
@@ -52,7 +53,7 @@ const generateRefreshToken = (userId) => {
   return jwt.sign({ userId }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
 };
 
-const login = async (req, res) => {
+const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -83,7 +84,7 @@ const login = async (req, res) => {
     accessToken,
     user: { id: user.id, name: user.name, email: user.email },
   });
-};
+});
 
 const refresh = (req, res) => {
   const token = req.cookies.refreshToken;
@@ -109,7 +110,7 @@ const logout = (req, res) => {
   res.json({ message: 'Logged out successfully.' });
 };
 
-const getMe = async (req, res) => {
+const getMe = asyncHandler(async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.userId },
     select: { id: true, name: true, email: true },
@@ -120,6 +121,6 @@ const getMe = async (req, res) => {
   }
 
   res.json(user);
-};
+});
 
 module.exports = { signup, login, refresh, logout, getMe };

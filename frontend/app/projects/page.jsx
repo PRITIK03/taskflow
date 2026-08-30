@@ -75,14 +75,11 @@ export default function ProjectsPage() {
       }
 
       const newProject = await response.json();
-      
-      // Refresh the projects list
-      const listResponse = await authedFetch('/api/projects');
-      if (listResponse.ok) {
-        const data = await listResponse.json();
-        setProjects(data);
-      }
-      
+
+      // The POST response already includes the full project object.
+      // Append it directly rather than re-fetching the whole list.
+      setProjects((prev) => [...prev, { ...newProject, myRole: 'OWNER' }]);
+
       // Clear the input
       setNewProjectName('');
     } catch (err) {

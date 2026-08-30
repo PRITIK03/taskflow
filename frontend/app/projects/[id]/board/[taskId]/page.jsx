@@ -149,7 +149,7 @@ export default function TaskDetailPage() {
 
   useEffect(() => {
     fetchComments();
-  }, [authLoading, user, projectId, taskId, authedFetch, router]);
+  }, [fetchComments]);
 
   // Socket listeners for real-time updates
   useEffect(() => {
