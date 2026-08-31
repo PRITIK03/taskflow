@@ -146,46 +146,48 @@ export default function AssignedToMePage() {
               {/* Tasks List */}
               <div className="space-y-4 mb-6">
                 {tasks.map((task) => (
-                  <Link
+                  // Outer wrapper is a div with onClick — NOT a Link — because the inner
+                  // project-name Link is a real <a> and <a> nested inside <a> is invalid HTML
+                  // that causes a React hydration error. router.push gives identical navigation.
+                  <div
                     key={task.id}
-                    href={`/projects/${task.project.id}/board/${task.id}`}
+                    onClick={() => router.push(`/projects/${task.project.id}/board/${task.id}`)}
+                    className="bg-white shadow rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer"
                   >
-                    <div className="bg-white shadow rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="text-lg font-medium text-gray-900 mb-2">
-                            {task.title}
-                          </h3>
-                          <div className="flex items-center space-x-3 mb-2">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
-                              {task.status.replace('_', ' ')}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                          {task.title}
+                        </h3>
+                        <div className="flex items-center space-x-3 mb-2">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
+                            {task.status.replace('_', ' ')}
+                          </span>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
+                            {task.priority}
+                          </span>
+                          {task.dueDate && (
+                            <span className="text-xs text-gray-500">
+                              Due: {formatDate(task.dueDate)}
                             </span>
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
-                              {task.priority}
-                            </span>
-                            {task.dueDate && (
-                              <span className="text-xs text-gray-500">
-                                Due: {formatDate(task.dueDate)}
-                              </span>
-                            )}
-                          </div>
-                          <Link 
-                            href={`/projects/${task.project.id}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
-                          >
-                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                            </svg>
-                            {task.project.name}
-                          </Link>
+                          )}
                         </div>
-                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
+                        <Link
+                          href={`/projects/${task.project.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                          </svg>
+                          {task.project.name}
+                        </Link>
                       </div>
+                      <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
                     </div>
-                  </Link>
+                  </div>
                 ))}
               </div>
 
