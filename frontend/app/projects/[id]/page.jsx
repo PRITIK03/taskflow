@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
@@ -11,19 +11,26 @@ export default function ProjectDetailPage() {
   const params = useParams();
   const projectId = params.id;
   const { user, isLoading: authLoading, authedFetch } = useAuth();
-  
+
   const [project, setProject] = useState(null);
   const [members, setMembers] = useState([]);
   const [isLoadingProject, setIsLoadingProject] = useState(true);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
   const [error, setError] = useState('');
-  
+
   const [inviteEmail, setInviteEmail] = useState('');
   const [isInviting, setIsInviting] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
 
-  // Wait for auth to finish loading before deciding what to show
+  // Activity feed state
+  const [activity, setActivity] = useState([]);
+  const [isLoadingActivity, setIsLoadingActivity] = useState(true);
+  const [activityError, setActivityError] = useState('');
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityTotalPages, setActivityTotalPages] = useState(1);
+
+  // Auth guard
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
@@ -37,14 +44,14 @@ export default function ProjectDetailPage() {
     const fetchProject = async () => {
       try {
         const response = await authedFetch(`/api/projects/${projectId}`);
-        
+
         if (response.status === 401) {
           router.push('/login');
           return;
         }
 
         if (response.status === 403) {
-          setError('You don\'t have access to this project');
+          setError("You don't have access to this project");
           setIsLoadingProject(false);
           return;
         }
@@ -81,7 +88,7 @@ export default function ProjectDetailPage() {
     const fetchMembers = async () => {
       try {
         const response = await authedFetch(`/api/projects/${projectId}/members`);
-        
+
         if (response.status === 401) {
           router.push('/login');
           return;
@@ -100,6 +107,64 @@ export default function ProjectDetailPage() {
 
     fetchMembers();
   }, [authLoading, user, projectId, authedFetch, router]);
+
+  // Fetch activity feed — re-runs when the page number changes
+  const fetchActivity = useCallback(async () => {
+    if (authLoading || !user) return;
+
+    setIsLoadingActivity(true);
+    setActivityError('');
+
+    try {
+      const response = await authedFetch(
+        `/api/projects/${projectId}/activity?page=${activityPage}&limit=10`
+      );
+
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      if (!response.ok) {
+        const data = await response.json();
+        setActivityError(data.error || 'Failed to load activity');
+        return;
+      }
+
+      const data = await response.json();
+      setActivity(data.data);
+      setActivityTotalPages(data.totalPages);
+    } catch (err) {
+      setActivityError('Failed to load activity');
+    } finally {
+      setIsLoadingActivity(false);
+    }
+  }, [authLoading, user, projectId, activityPage, authedFetch, router]);
+
+  useEffect(() => {
+    fetchActivity();
+  }, [fetchActivity]);
+
+  // Relative timestamp — same pattern used on Dashboard and task detail
+  const formatRelativeTime = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+    });
+  };
 
   const handleInviteMember = async (e) => {
     e.preventDefault();
@@ -129,6 +194,10 @@ export default function ProjectDetailPage() {
         const data = await membersResponse.json();
         setMembers(data);
       }
+
+      // Invite creates an activity log entry — refresh the feed to show it
+      setActivityPage(1);
+      fetchActivity();
     } catch (err) {
       setInviteError('Failed to invite member');
     } finally {
@@ -152,15 +221,18 @@ export default function ProjectDetailPage() {
         return;
       }
 
-      // Remove the member from local state directly — no re-fetch needed
-      // since we have the userId and don't need any server-provided data.
+      // Remove from local state directly — no re-fetch needed
       setMembers((prev) => prev.filter((m) => m.userId !== userId));
+
+      // Removal creates an activity log entry — refresh the feed
+      setActivityPage(1);
+      fetchActivity();
     } catch (err) {
       alert('Failed to remove member');
     }
   };
 
-  // Show loading state while auth is initializing
+  // Loading state while auth initializes
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -175,7 +247,6 @@ export default function ProjectDetailPage() {
     );
   }
 
-  // Don't render anything if redirecting to login
   if (!user) {
     return null;
   }
@@ -183,7 +254,7 @@ export default function ProjectDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <NavBar />
-      
+
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Back Link */}
@@ -224,14 +295,14 @@ export default function ProjectDetailPage() {
                   <div>
                     <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
                     <span className={`mt-2 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                      project.myRole === 'OWNER' 
-                        ? 'bg-blue-100 text-blue-800' 
+                      project.myRole === 'OWNER'
+                        ? 'bg-blue-100 text-blue-800'
                         : 'bg-gray-100 text-gray-800'
                     }`}>
                       Your Role: {project.myRole}
                     </span>
                   </div>
-                  <Link 
+                  <Link
                     href={`/projects/${projectId}/board`}
                     className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
@@ -240,9 +311,8 @@ export default function ProjectDetailPage() {
                 </div>
               </div>
 
-              {/* Members Section */}
-              {/* No self-leave endpoint exists yet — members can only be removed by the owner, per current backend scope */}
-              <div className="bg-white shadow rounded-lg p-6">
+              {/* ── Members Section ─────────────────────────────────────────── */}
+              <div className="bg-white shadow rounded-lg p-6 mb-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Team Members</h2>
 
                 {/* Invite Member Form (OWNER only) */}
@@ -257,7 +327,7 @@ export default function ProjectDetailPage() {
                         placeholder="Enter email address"
                         required
                         disabled={isInviting}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="flex-1 px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
                       />
                       <button
                         type="submit"
@@ -299,15 +369,15 @@ export default function ProjectDetailPage() {
                         </div>
                         <div className="flex items-center gap-3">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            membership.role === 'OWNER' 
-                              ? 'bg-blue-100 text-blue-800' 
+                            membership.role === 'OWNER'
+                              ? 'bg-blue-100 text-blue-800'
                               : 'bg-gray-100 text-gray-800'
                           }`}>
                             {membership.role}
                           </span>
-                          {project.myRole === 'OWNER' && 
-                           membership.role !== 'OWNER' && 
-                           membership.userId !== user.id && (
+                          {project.myRole === 'OWNER' &&
+                            membership.role !== 'OWNER' &&
+                            membership.userId !== user.id && (
                             <button
                               onClick={() => handleRemoveMember(membership.userId, membership.user.name)}
                               className="text-sm text-red-600 hover:text-red-800 font-medium"
@@ -319,6 +389,72 @@ export default function ProjectDetailPage() {
                       </div>
                     ))}
                   </div>
+                )}
+              </div>
+
+              {/* ── Activity Feed ────────────────────────────────────────────── */}
+              <div className="bg-white shadow rounded-lg p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Activity</h2>
+
+                {isLoadingActivity ? (
+                  <div className="text-center py-8">
+                    <svg className="animate-spin h-6 w-6 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p className="mt-2 text-sm text-gray-600">Loading activity...</p>
+                  </div>
+                ) : activityError ? (
+                  <div className="rounded-md bg-red-50 p-3">
+                    <p className="text-sm text-red-800">{activityError}</p>
+                  </div>
+                ) : activity.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-8">No activity yet.</p>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      {activity.map((entry) => (
+                        <div
+                          key={entry.id}
+                          className="flex items-start gap-3 py-3 border-b border-gray-100 last:border-b-0"
+                        >
+                          {/* Icon dot */}
+                          <div className="mt-1 flex-shrink-0 w-2 h-2 rounded-full bg-blue-400"></div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-900">{entry.message}</p>
+                            <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
+                              <span>{entry.actor.name}</span>
+                              <span>·</span>
+                              <span>{formatRelativeTime(entry.createdAt)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Pagination */}
+                    {activityTotalPages > 1 && (
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                        <button
+                          onClick={() => setActivityPage(p => Math.max(1, p - 1))}
+                          disabled={activityPage === 1}
+                          className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Previous
+                        </button>
+                        <span className="text-sm text-gray-600">
+                          Page {activityPage} of {activityTotalPages}
+                        </span>
+                        <button
+                          onClick={() => setActivityPage(p => Math.min(activityTotalPages, p + 1))}
+                          disabled={activityPage === activityTotalPages}
+                          className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </>

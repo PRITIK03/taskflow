@@ -463,7 +463,7 @@ export default function TaskDetailPage() {
                         type="text"
                         value={editTitle}
                         onChange={(e) => setEditTitle(e.target.value)}
-                        className="text-2xl font-bold text-gray-900 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="text-2xl font-bold text-gray-900 w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
                         disabled={isSaving}
                       />
                     ) : (
@@ -523,7 +523,7 @@ export default function TaskDetailPage() {
                         value={editDescription}
                         onChange={(e) => setEditDescription(e.target.value)}
                         rows={4}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
                         disabled={isSaving}
                         placeholder="No description"
                       />
@@ -548,7 +548,7 @@ export default function TaskDetailPage() {
                         <select
                           value={task.status}
                           onChange={(e) => handleStatusChange(e.target.value)}
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          className="block w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
                           <option value="TODO">TODO</option>
                           <option value="IN_PROGRESS">IN PROGRESS</option>
@@ -565,7 +565,7 @@ export default function TaskDetailPage() {
                         <select
                           value={editPriority}
                           onChange={(e) => setEditPriority(e.target.value)}
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          className="block w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
                           disabled={isSaving}
                         >
                           <option value="LOW">Low</option>
@@ -588,7 +588,7 @@ export default function TaskDetailPage() {
                           type="date"
                           value={editDueDate}
                           onChange={(e) => setEditDueDate(e.target.value)}
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          className="block w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
                           disabled={isSaving}
                         />
                       ) : (
@@ -606,7 +606,7 @@ export default function TaskDetailPage() {
                       <select
                         value={editAssigneeId}
                         onChange={(e) => setEditAssigneeId(e.target.value)}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
                         disabled={isSaving || isLoadingMembers}
                       >
                         <option value="">Unassigned</option>
@@ -694,7 +694,7 @@ export default function TaskDetailPage() {
                     value={newCommentBody}
                     onChange={(e) => setNewCommentBody(e.target.value)}
                     rows={3}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
                     placeholder="Write your comment..."
                     disabled={isPostingComment}
                   />

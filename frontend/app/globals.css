@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* ─── Theme tokens ────────────────────────────────────────────────────────────
+   This app is light-mode only — there is no dark mode toggle.
+   The original Next.js scaffold included a prefers-color-scheme: dark block that
+   flipped --foreground to near-white and --background to near-black, which caused
+   invisible text in form inputs on systems with OS dark mode enabled (inputs
+   inherited white text on a white Tailwind bg-white background).
+   Removed that block entirely so CSS variables are always the light-theme values.
+   All input/select/textarea elements across the app also have explicit bg-white
+   and text-gray-900 classes as a second layer of defence.
+────────────────────────────────────────────────────────────────────────────── */
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -12,15 +22,8 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans, Arial, Helvetica, sans-serif);
 }

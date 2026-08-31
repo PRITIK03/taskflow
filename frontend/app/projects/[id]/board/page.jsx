@@ -13,11 +13,15 @@ export default function TaskBoardPage() {
   const projectId = params.id;
   const { user, isLoading: authLoading, authedFetch } = useAuth();
   const { socket, isConnected, connectionEpoch } = useSocket();
-  
+
   const [tasks, setTasks] = useState([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [error, setError] = useState('');
-  
+
+  // Members — fetched once on mount, used for the assignee dropdown in Create Task
+  // and for resolving assignee names on task cards.
+  const [members, setMembers] = useState([]);
+
   // Filters and pagination
   const [statusFilter, setStatusFilter] = useState('All');
   const [priorityFilter, setPriorityFilter] = useState('All');
@@ -27,19 +31,20 @@ export default function TaskBoardPage() {
   const [sortOrder, setSortOrder] = useState('desc');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  
+
   // Create task form
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState('MEDIUM');
   const [newTaskDueDate, setNewTaskDueDate] = useState('');
+  const [newTaskAssigneeId, setNewTaskAssigneeId] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState('');
-  
+
   // Status change error
   const [statusChangeError, setStatusChangeError] = useState('');
-  
+
   // connectionEpoch < 2 means we haven't had a real reconnect yet:
   //   epoch 0 = never connected, epoch 1 = first connect (REST data already fetched).
   //   Only epoch >= 2 means a disconnect + reconnect happened and we need to recover.
@@ -51,11 +56,32 @@ export default function TaskBoardPage() {
     }
   }, [authLoading, user, router]);
 
+  // Fetch project members once on mount — needed for the assignee dropdown
+  // in Create Task and for resolving names on task cards.
+  useEffect(() => {
+    if (authLoading || !user) return;
+
+    const fetchMembers = async () => {
+      try {
+        const response = await authedFetch(`/api/projects/${projectId}/members`);
+        if (response.ok) {
+          const data = await response.json();
+          setMembers(data);
+        }
+      } catch (err) {
+        // Non-fatal — the board still works without member names
+        console.error('Failed to load project members:', err);
+      }
+    };
+
+    fetchMembers();
+  }, [authLoading, user, projectId, authedFetch]);
+
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery);
-      setPage(1); // Reset to page 1 when search changes
+      setPage(1);
     }, 400);
 
     return () => clearTimeout(timer);
@@ -70,40 +96,31 @@ export default function TaskBoardPage() {
 
     try {
       const params = new URLSearchParams();
-      
+
       // Design tradeoff: When statusFilter is 'All', we fetch without status filter
       // and display in a 3-column board layout (client-side grouping).
       // Pagination is only active when a specific status is selected (single-column view).
-      // This is a deliberate choice: the backend's pagination is server-side and applies
-      // to the entire filtered result set, not per-column. A true multi-column kanban
-      // with per-column pagination would require either (a) 3 separate paginated fetches
-      // (wasteful and complex), or (b) a specialized backend endpoint that returns
-      // paginated data per status. Given the current backend scope, we use client-side
-      // grouping for the 3-column view with a reasonable limit (100 tasks), and only
-      // enable server-side pagination when viewing a single status filter.
-      
       if (statusFilter !== 'All') {
         params.append('status', statusFilter);
         params.append('page', page.toString());
         params.append('limit', '20');
       } else {
-        // 3-column view: fetch all statuses with higher limit, no pagination
         params.append('limit', '100');
       }
-      
+
       if (priorityFilter !== 'All') {
         params.append('priority', priorityFilter);
       }
-      
+
       if (debouncedSearch) {
         params.append('search', debouncedSearch);
       }
-      
+
       params.append('sortBy', sortBy);
       params.append('sortOrder', sortOrder);
 
       const response = await authedFetch(`/api/projects/${projectId}/tasks?${params.toString()}`);
-      
+
       if (response.status === 401) {
         router.push('/login');
         return;
@@ -137,19 +154,16 @@ export default function TaskBoardPage() {
       if (task.projectId !== projectId) return;
 
       if (statusFilter === 'All') {
-        // 3-column view: upsert directly
         setTasks((prevTasks) => {
           const existingIndex = prevTasks.findIndex(t => t.id === task.id);
           if (existingIndex >= 0) {
             const updated = [...prevTasks];
             updated[existingIndex] = task;
             return updated;
-          } else {
-            return [...prevTasks, task];
           }
+          return [...prevTasks, task];
         });
       } else {
-        // Paginated view: silent refetch
         fetchTasks();
       }
     };
@@ -158,19 +172,16 @@ export default function TaskBoardPage() {
       if (task.projectId !== projectId) return;
 
       if (statusFilter === 'All') {
-        // 3-column view: upsert directly
         setTasks((prevTasks) => {
           const existingIndex = prevTasks.findIndex(t => t.id === task.id);
           if (existingIndex >= 0) {
             const updated = [...prevTasks];
             updated[existingIndex] = task;
             return updated;
-          } else {
-            return [...prevTasks, task];
           }
+          return [...prevTasks, task];
         });
       } else {
-        // Paginated view: silent refetch (handles status changes automatically)
         fetchTasks();
       }
     };
@@ -179,10 +190,8 @@ export default function TaskBoardPage() {
       const deletedId = data.taskId;
 
       if (statusFilter === 'All') {
-        // 3-column view: remove directly
         setTasks((prevTasks) => prevTasks.filter(t => t.id !== deletedId));
       } else {
-        // Paginated view: silent refetch
         fetchTasks();
       }
     };
@@ -201,8 +210,6 @@ export default function TaskBoardPage() {
   // Refetch on reconnect — skip initial connect (epoch 1), only fire on epoch >= 2
   useEffect(() => {
     if (connectionEpoch < 2) return;
-
-    // Reconnected - silently refetch to recover missed events
     fetchTasks();
   }, [connectionEpoch, fetchTasks]);
 
@@ -230,6 +237,10 @@ export default function TaskBoardPage() {
         body.dueDate = newTaskDueDate;
       }
 
+      if (newTaskAssigneeId) {
+        body.assigneeId = newTaskAssigneeId;
+      }
+
       const response = await authedFetch(`/api/projects/${projectId}/tasks`, {
         method: 'POST',
         body: JSON.stringify(body),
@@ -241,11 +252,35 @@ export default function TaskBoardPage() {
         return;
       }
 
-      // Clear form — socket event will update the board automatically
+      const createdTask = await response.json();
+
+      // BUG FIX: immediately upsert the new task into local state from the POST
+      // response body. Previously the UI relied solely on the socket event (task:created)
+      // to show the card, which is a network round-trip away and non-deterministic —
+      // any socket delivery delay meant the card silently didn't appear.
+      // The socket event will still arrive and upsert idempotently (same findIndex
+      // logic handles duplicates), so there's no double-add.
+      if (statusFilter === 'All') {
+        setTasks((prevTasks) => {
+          const existingIndex = prevTasks.findIndex(t => t.id === createdTask.id);
+          if (existingIndex >= 0) {
+            const updated = [...prevTasks];
+            updated[existingIndex] = createdTask;
+            return updated;
+          }
+          return [...prevTasks, createdTask];
+        });
+      }
+      // In paginated single-column view, a fetchTasks() would re-paginate and possibly
+      // push the new task off-screen depending on sort order — just let the socket
+      // event trigger the refetch for that case, same as before.
+
+      // Clear form
       setNewTaskTitle('');
       setNewTaskDescription('');
       setNewTaskPriority('MEDIUM');
       setNewTaskDueDate('');
+      setNewTaskAssigneeId('');
       setShowCreateForm(false);
     } catch (err) {
       setCreateError('Failed to create task');
@@ -281,16 +316,21 @@ export default function TaskBoardPage() {
     }
   };
 
+  // Resolve a userId to a display name using the already-fetched members list.
+  // Falls back to "Unassigned" if null, or "Unknown" if the member isn't found
+  // (e.g. they were removed from the project after the task was assigned).
+  const getAssigneeName = (assigneeId) => {
+    if (!assigneeId) return null;
+    const membership = members.find(m => m.userId === assigneeId);
+    return membership ? membership.user.name : 'Unknown';
+  };
+
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'HIGH':
-        return 'bg-red-100 text-red-800';
-      case 'MEDIUM':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'LOW':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'HIGH': return 'bg-red-100 text-red-800';
+      case 'MEDIUM': return 'bg-yellow-100 text-yellow-800';
+      case 'LOW': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -299,7 +339,7 @@ export default function TaskBoardPage() {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
-      year: 'numeric'
+      year: 'numeric',
     });
   };
 
@@ -310,45 +350,49 @@ export default function TaskBoardPage() {
     DONE: tasks.filter(t => t.status === 'DONE'),
   };
 
-  const renderTaskCard = (task) => (
-    <div key={task.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-      <Link href={`/projects/${projectId}/board/${task.id}`}>
-        <h4 className="font-medium text-gray-900 mb-2 hover:text-blue-600 cursor-pointer">
-          {task.title}
-        </h4>
-      </Link>
-      
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getPriorityColor(task.priority)}`}>
-            {task.priority}
-          </span>
-          
-          {/* Status change dropdown */}
-          <select
-            value={task.status}
-            onChange={(e) => handleStatusChange(task.id, e.target.value)}
-            className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <option value="TODO">TODO</option>
-            <option value="IN_PROGRESS">IN PROGRESS</option>
-            <option value="DONE">DONE</option>
-          </select>
-        </div>
-        
-        <p className="text-sm text-gray-600">
-          {task.assigneeId ? 'Assigned' : 'Unassigned'}
-        </p>
-        
-        {task.dueDate && (
-          <p className="text-xs text-gray-500">
-            Due: {formatDate(task.dueDate)}
+  const renderTaskCard = (task) => {
+    const assigneeName = getAssigneeName(task.assigneeId);
+    return (
+      <div key={task.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+        <Link href={`/projects/${projectId}/board/${task.id}`}>
+          <h4 className="font-medium text-gray-900 mb-2 hover:text-blue-600 cursor-pointer">
+            {task.title}
+          </h4>
+        </Link>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getPriorityColor(task.priority)}`}>
+              {task.priority}
+            </span>
+
+            {/* Status change dropdown */}
+            <select
+              value={task.status}
+              onChange={(e) => handleStatusChange(task.id, e.target.value)}
+              className="text-xs bg-white text-gray-900 border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <option value="TODO">TODO</option>
+              <option value="IN_PROGRESS">IN PROGRESS</option>
+              <option value="DONE">DONE</option>
+            </select>
+          </div>
+
+          {/* Assignee — resolved from members list, not just a boolean */}
+          <p className="text-sm text-gray-600">
+            {assigneeName ? `Assigned to: ${assigneeName}` : 'Unassigned'}
           </p>
-        )}
+
+          {task.dueDate && (
+            <p className="text-xs text-gray-500">
+              Due: {formatDate(task.dueDate)}
+            </p>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Show loading state while auth is initializing
   if (authLoading) {
@@ -372,7 +416,7 @@ export default function TaskBoardPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <NavBar />
-      
+
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Back Link */}
@@ -387,7 +431,7 @@ export default function TaskBoardPage() {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-3xl font-bold text-gray-900">Task Board</h1>
-              
+
               {/* Connection Indicator */}
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
@@ -396,7 +440,7 @@ export default function TaskBoardPage() {
                 </span>
               </div>
             </div>
-            
+
             {/* Create Task Button */}
             <button
               onClick={() => setShowCreateForm(!showCreateForm)}
@@ -422,7 +466,7 @@ export default function TaskBoardPage() {
                     onChange={(e) => setNewTaskTitle(e.target.value)}
                     required
                     disabled={isCreating}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="mt-1 block w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
                   />
                 </div>
 
@@ -436,7 +480,7 @@ export default function TaskBoardPage() {
                     onChange={(e) => setNewTaskDescription(e.target.value)}
                     rows={3}
                     disabled={isCreating}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="mt-1 block w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
                   />
                 </div>
 
@@ -450,7 +494,7 @@ export default function TaskBoardPage() {
                       value={newTaskPriority}
                       onChange={(e) => setNewTaskPriority(e.target.value)}
                       disabled={isCreating}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      className="mt-1 block w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
                     >
                       <option value="LOW">Low</option>
                       <option value="MEDIUM">Medium</option>
@@ -468,9 +512,30 @@ export default function TaskBoardPage() {
                       value={newTaskDueDate}
                       onChange={(e) => setNewTaskDueDate(e.target.value)}
                       disabled={isCreating}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      className="mt-1 block w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
                     />
                   </div>
+                </div>
+
+                {/* Assignee dropdown — GAP 1 fix */}
+                <div>
+                  <label htmlFor="assignee" className="block text-sm font-medium text-gray-700">
+                    Assignee
+                  </label>
+                  <select
+                    id="assignee"
+                    value={newTaskAssigneeId}
+                    onChange={(e) => setNewTaskAssigneeId(e.target.value)}
+                    disabled={isCreating}
+                    className="mt-1 block w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
+                  >
+                    <option value="">Unassigned</option>
+                    {members.map((membership) => (
+                      <option key={membership.userId} value={membership.userId}>
+                        {membership.user.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {createError && (
@@ -501,13 +566,11 @@ export default function TaskBoardPage() {
           <div className="bg-white shadow rounded-lg p-4 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Status
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="All">All</option>
                   <option value="TODO">TODO</option>
@@ -517,13 +580,11 @@ export default function TaskBoardPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Priority
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
                 <select
                   value={priorityFilter}
                   onChange={(e) => setPriorityFilter(e.target.value)}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="All">All</option>
                   <option value="LOW">Low</option>
@@ -533,14 +594,12 @@ export default function TaskBoardPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Sort By
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
                 <div className="flex gap-2">
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="createdAt">Created</option>
                     <option value="priority">Priority</option>
@@ -549,7 +608,7 @@ export default function TaskBoardPage() {
                   <select
                     value={sortOrder}
                     onChange={(e) => setSortOrder(e.target.value)}
-                    className="block w-24 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-24 px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="asc">Asc</option>
                     <option value="desc">Desc</option>
@@ -558,21 +617,19 @@ export default function TaskBoardPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Search
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search tasks..."
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
             </div>
           </div>
 
-          {/* Loading State */}
+          {/* Task Display */}
           {isLoadingTasks ? (
             <div className="text-center py-12">
               <svg className="animate-spin h-8 w-8 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -588,45 +645,39 @@ export default function TaskBoardPage() {
           ) : statusFilter === 'All' ? (
             /* 3-Column Board View */
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* TODO Column */}
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b-2 border-gray-300">
                   TODO ({groupedTasks.TODO.length})
                 </h3>
                 <div className="space-y-3">
-                  {groupedTasks.TODO.length > 0 ? (
-                    groupedTasks.TODO.map(renderTaskCard)
-                  ) : (
-                    <p className="text-sm text-gray-500 text-center py-8">No tasks</p>
-                  )}
+                  {groupedTasks.TODO.length > 0
+                    ? groupedTasks.TODO.map(renderTaskCard)
+                    : <p className="text-sm text-gray-500 text-center py-8">No tasks</p>
+                  }
                 </div>
               </div>
 
-              {/* IN_PROGRESS Column */}
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b-2 border-blue-500">
                   IN PROGRESS ({groupedTasks.IN_PROGRESS.length})
                 </h3>
                 <div className="space-y-3">
-                  {groupedTasks.IN_PROGRESS.length > 0 ? (
-                    groupedTasks.IN_PROGRESS.map(renderTaskCard)
-                  ) : (
-                    <p className="text-sm text-gray-500 text-center py-8">No tasks</p>
-                  )}
+                  {groupedTasks.IN_PROGRESS.length > 0
+                    ? groupedTasks.IN_PROGRESS.map(renderTaskCard)
+                    : <p className="text-sm text-gray-500 text-center py-8">No tasks</p>
+                  }
                 </div>
               </div>
 
-              {/* DONE Column */}
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b-2 border-green-500">
                   DONE ({groupedTasks.DONE.length})
                 </h3>
                 <div className="space-y-3">
-                  {groupedTasks.DONE.length > 0 ? (
-                    groupedTasks.DONE.map(renderTaskCard)
-                  ) : (
-                    <p className="text-sm text-gray-500 text-center py-8">No tasks</p>
-                  )}
+                  {groupedTasks.DONE.length > 0
+                    ? groupedTasks.DONE.map(renderTaskCard)
+                    : <p className="text-sm text-gray-500 text-center py-8">No tasks</p>
+                  }
                 </div>
               </div>
             </div>
@@ -634,16 +685,16 @@ export default function TaskBoardPage() {
             /* Single-Column Paginated View */
             <>
               <div className="space-y-3 mb-6">
-                {tasks.length > 0 ? (
-                  tasks.map(renderTaskCard)
-                ) : (
-                  <div className="text-center py-12 bg-white shadow rounded-lg">
-                    <p className="text-sm text-gray-500">No tasks found</p>
-                  </div>
-                )}
+                {tasks.length > 0
+                  ? tasks.map(renderTaskCard)
+                  : (
+                    <div className="text-center py-12 bg-white shadow rounded-lg">
+                      <p className="text-sm text-gray-500">No tasks found</p>
+                    </div>
+                  )
+                }
               </div>
 
-              {/* Pagination Controls */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between">
                   <button
@@ -653,9 +704,7 @@ export default function TaskBoardPage() {
                   >
                     Previous
                   </button>
-                  <span className="text-sm text-gray-700">
-                    Page {page} of {totalPages}
-                  </span>
+                  <span className="text-sm text-gray-700">Page {page} of {totalPages}</span>
                   <button
                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
