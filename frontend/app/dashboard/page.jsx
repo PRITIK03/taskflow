@@ -117,84 +117,94 @@ export default function DashboardPage() {
               {/* ── Overview row: project count + completed this week ──────── */}
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Overview</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
-                {/* Project Count */}
-                <div className="bg-white shadow rounded-lg p-6">
-                  <div className="flex items-center">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-600">Projects</p>
-                      <p className="text-3xl font-bold text-gray-900">{dashboard.projectCount}</p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <svg className="h-10 w-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                      </svg>
+                {/* Project Count — links to /projects */}
+                <Link href="/projects" className="block">
+                  <div className="bg-white shadow rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer">
+                    <div className="flex items-center">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-600">Projects</p>
+                        <p className="text-3xl font-bold text-gray-900">{dashboard.projectCount}</p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <svg className="h-10 w-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                        </svg>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </Link>
 
-                {/* Completed This Week */}
-                <div className="bg-white shadow rounded-lg p-6">
-                  <div className="flex items-center">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-600">Completed This Week</p>
-                      <p className="text-3xl font-bold text-green-600">{dashboard.completedThisWeek}</p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <svg className="h-10 w-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
+                {/* Completed This Week — links to /assigned-to-me */}
+                <Link href="/assigned-to-me" className="block">
+                  <div className="bg-white shadow rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer">
+                    <div className="flex items-center">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-600">Completed This Week</p>
+                        <p className="text-3xl font-bold text-green-600">{dashboard.completedThisWeek}</p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <svg className="h-10 w-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               </div>
 
               {/* ── My Tasks by Status row: TODO / IN PROGRESS / DONE ─────── */}
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">My Tasks by Status</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-                {/* TODO */}
-                <div className="bg-white shadow rounded-lg p-6">
-                  <div className="flex items-center">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-600">TODO</p>
-                      <p className="text-3xl font-bold text-gray-900">{dashboard.tasksByStatus.TODO}</p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
-                        <span className="text-base font-bold text-gray-500">T</span>
+                {/* TODO — links to /assigned-to-me */}
+                <Link href="/assigned-to-me" className="block">
+                  <div className="bg-white shadow rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer">
+                    <div className="flex items-center">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-600">TODO</p>
+                        <p className="text-3xl font-bold text-gray-900">{dashboard.tasksByStatus.TODO}</p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+                          <span className="text-base font-bold text-gray-500">T</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
 
-                {/* IN PROGRESS */}
-                <div className="bg-white shadow rounded-lg p-6">
-                  <div className="flex items-center">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-600">In Progress</p>
-                      <p className="text-3xl font-bold text-blue-600">{dashboard.tasksByStatus.IN_PROGRESS}</p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                        <span className="text-base font-bold text-blue-500">P</span>
+                {/* IN PROGRESS — links to /assigned-to-me */}
+                <Link href="/assigned-to-me" className="block">
+                  <div className="bg-white shadow rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer">
+                    <div className="flex items-center">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-600">In Progress</p>
+                        <p className="text-3xl font-bold text-blue-600">{dashboard.tasksByStatus.IN_PROGRESS}</p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                          <span className="text-base font-bold text-blue-500">P</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
 
-                {/* DONE */}
-                <div className="bg-white shadow rounded-lg p-6">
-                  <div className="flex items-center">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-600">Done</p>
-                      <p className="text-3xl font-bold text-green-600">{dashboard.tasksByStatus.DONE}</p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
-                        <span className="text-base font-bold text-green-500">✓</span>
+                {/* DONE — links to /assigned-to-me */}
+                <Link href="/assigned-to-me" className="block">
+                  <div className="bg-white shadow rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer">
+                    <div className="flex items-center">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-600">Done</p>
+                        <p className="text-3xl font-bold text-green-600">{dashboard.tasksByStatus.DONE}</p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                          <span className="text-base font-bold text-green-500">✓</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               </div>
 
               {/* ── Busiest Project ───────────────────────────────────────── */}
@@ -240,7 +250,13 @@ export default function DashboardPage() {
                           <div className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-400">
                             <span>{activity.actor.name}</span>
                             <span>·</span>
-                            <span>{activity.project.name}</span>
+                            <Link
+                              href={`/projects/${activity.project.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="hover:text-blue-500 hover:underline"
+                            >
+                              {activity.project.name}
+                            </Link>
                             <span>·</span>
                             <span>{formatActivityDate(activity.createdAt)}</span>
                           </div>
