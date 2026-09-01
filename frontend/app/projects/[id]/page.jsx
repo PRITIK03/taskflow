@@ -23,6 +23,9 @@ export default function ProjectDetailPage() {
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
 
+  const [deleteError, setDeleteError] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Activity feed state
   const [activity, setActivity] = useState([]);
   const [isLoadingActivity, setIsLoadingActivity] = useState(true);
@@ -232,6 +235,36 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleDeleteProject = async () => {
+    const confirmed = window.confirm(
+      `Permanently delete "${project.name}"?\n\n` +
+      `This will delete ALL tasks, comments, members, and activity in this project. ` +
+      `This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeleteError('');
+    setIsDeleting(true);
+
+    try {
+      const response = await authedFetch(`/api/projects/${projectId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        setDeleteError(data.error || 'Failed to delete project');
+        return;
+      }
+
+      router.push('/projects');
+    } catch (err) {
+      setDeleteError('Failed to delete project');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Loading state while auth initializes
   if (authLoading) {
     return (
@@ -393,9 +426,8 @@ export default function ProjectDetailPage() {
               </div>
 
               {/* ── Activity Feed ────────────────────────────────────────────── */}
-              <div className="bg-white shadow rounded-lg p-6">
+              <div className="bg-white shadow rounded-lg p-6 mb-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Activity</h2>
-
                 {isLoadingActivity ? (
                   <div className="text-center py-8">
                     <svg className="animate-spin h-6 w-6 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -457,6 +489,40 @@ export default function ProjectDetailPage() {
                   </>
                 )}
               </div>
+              {/* ── Danger Zone — OWNER only ─────────────────────────────── */}
+              {project.myRole === 'OWNER' && (
+                <div className="border border-red-200 rounded-lg p-6 bg-red-50">
+                  <h2 className="text-base font-semibold text-red-800 mb-1">Danger Zone</h2>
+                  <p className="text-sm text-red-700 mb-4">
+                    Deleting this project is permanent and cannot be undone. All tasks, comments,
+                    members, and activity history will be erased immediately.
+                  </p>
+
+                  {deleteError && (
+                    <div className="mb-4 rounded-md bg-white border border-red-300 p-3">
+                      <p className="text-sm text-red-700">{deleteError}</p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleDeleteProject}
+                    disabled={isDeleting}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-semibold rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isDeleting ? (
+                      <span className="flex items-center gap-2">
+                        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Deleting…
+                      </span>
+                    ) : (
+                      'Delete Project'
+                    )}
+                  </button>
+                </div>
+              )}
             </>
           ) : null}
         </div>
