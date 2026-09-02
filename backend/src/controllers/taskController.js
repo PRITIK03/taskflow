@@ -212,16 +212,6 @@ const updateTask = asyncHandler(async (req, res) => {
   }
 
   if (req.body.status === 'DONE') {
-    // DEBUG — remove after confirming the fix
-    console.log('[updateTask DONE check]', {
-      reqUserId: req.userId,
-      membershipRole: req.membership?.role,
-      membershipProjectId: req.membership?.projectId,
-      existingTaskAssigneeId: existingTask.assigneeId,
-      existingTaskProjectId: existingTask.projectId,
-      paramsId: req.params.id,
-    });
-
     const canMarkDone =
       req.membership.role === 'OWNER' || existingTask.assigneeId === req.userId;
 

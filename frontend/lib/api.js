@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:5000';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 /**
  * Fetch wrapper that automatically includes credentials and optional auth token.

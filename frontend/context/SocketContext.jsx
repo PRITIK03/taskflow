@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 
-const BASE_URL = 'http://localhost:5000';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 const SocketContext = createContext(null);
 
