@@ -2,6 +2,11 @@
 
 A collaborative task-board application (Trello/Jira-style) built with a real backend, real database, JWT-based authentication with refresh tokens, role-based project membership, and live real-time updates via WebSockets.
 
+
+## Development Log
+
+A day-by-day log of what was built, decisions made, and errors encountered/fixed throughout development is available here: https://docs.google.com/spreadsheets/d/1o5wL2ENyriFwqxmbzX8wHh1W8UUn1Fj9PcXKxLkGcd0/edit?usp=sharing
+https://docs.google.com/spreadsheets/d/11jsRdXKe-0AdWfA8AnWYVIUGp9jBwuT7qRDrXPx-a_I/edit?usp=sharing
 ## What it does
 
 TaskFlow lets users sign up, create projects, and invite other registered users as project members. Tasks are managed on a Kanban-style board with three columns: To Do, In Progress, and Done. Project owners can invite and remove members; any member can create and edit tasks. Only the assigned member or the project owner can mark a task as Done. Only the task creator or the project owner can delete a task.
